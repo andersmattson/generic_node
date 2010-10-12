@@ -1,0 +1,284 @@
+<?php
+// $Id: generic_node.module,v 1.1.2.8 2010/09/03 16:17:25 rfay Exp $
+
+/**
+ * @file
+ */
+
+/**
+ * Implementation of hook_menu().
+function generic_node_menu() {
+  $items['examples/node_example'] = array(
+    'title' => 'Generic Node',
+    'page callback' => 'generic_node_info',
+    'access callback' => TRUE,
+  );
+  return $items;
+}
+ */
+
+/**
+ * Explain how the module demonstrates a new node type.node_example.test
+function generic_node_info() {
+	return t('The node example defines a new node type, "Generic node", which can be created at !link.', array('!link' => l(t('node/add/generic-node'), 'node/add/generic-node')));
+}
+ */
+
+
+/**
+ * Implementation of hook_node_info().
+ *
+ * This is a required node hook. This function describes the nodes provided by
+ * this module.
+ *
+ * The required attributes are:
+ * - "name" provides a human readable name for the node,
+ * - "module" tells Drupal how the module's functions map to hooks (i.e. if the
+ *   module is node_example_foo then node_example_foo_insert will be called
+ *   when inserting the node).
+ * - "description" provides a brief description of the node type, which is
+ *   shown when a user accesses the "Create content" page for that node type.
+ *
+ * The other optional, attributes:
+ * - "has_title" boolean that indicates whether or not this node type has a
+ *   title field.
+ * - "title_label": the label for the title field of this content type.
+ * - "has_body": boolean that indicates whether or not this node type has a
+ *   body field.
+ * - "body_label": the label for the body field of this content type.
+ * - "min_word_count": the minimum number of words for the body field to be
+ *   considered valid for this content type.
+ *
+ * The key in this example, "example_node_type_1", is the "machine name" of the
+ * node type and is stored in {node}.type. The node's type value cannot be
+ * changed through the admin interface.
+ *
+ */
+function generic_node_node_info() {
+  return array(
+    'generic_node' => array(
+      'name' => t('Generic node'),
+      'module' => 'generic_node',
+      'description' => t("An generic node type with a few fields."),
+      'has_title' => TRUE,
+      'title_label' => t('Name'),
+      'has_body' => TRUE,
+      'body_label' => t('Content'),
+    )
+  );
+}
+
+/**
+ * Implementation of hook_access().
+ *
+ * Node modules may implement node_access() to determine the operations
+ * users may perform on nodes. This example uses a very common access pattern.
+ */
+function generic_node_access($op, $node, $account) {
+  if ($op == 'create') {
+    return user_access('create generic content', $account);
+  }
+
+  if ($op == 'update') {
+    if (user_access('edit any generic content', $account) || (user_access('edit own generic content', $account) && ($account->uid == $node->uid))) {
+      return TRUE;
+    }
+  }
+
+  if ($op == 'delete') {
+    if (user_access('delete any generic content', $account) || (user_access('delete own generic content', $account) && ($account->uid == $node->uid))) {
+      return TRUE;
+    }
+  }
+}
+
+/**
+ * Implementation of hook_perm().
+ *
+ * Since we are limiting the ability to create new nodes to certain users,
+ * we need to define what those permissions are here. We also define a permission
+ * to allow users to edit the nodes they created.
+ */
+function generic_node_perm() {
+  return array(
+    'create generic content',
+    'delete own generic content',
+    'delete any generic content',
+    'edit own generic content',
+    'edit any generic content',
+  );
+}
+
+/**
+ * Implementation of hook_form().
+ *
+ * Now it's time to describe the form for collecting the information
+ * specific to this node type. This hook requires us to return an array with
+ * a sub array containing information for each element in the form.
+ */
+function generic_node_form(&$node, $form_state) {
+  // The site admin can decide if this node type has a title and body, and how
+  // the fields should be labeled. We need to load these settings so we can
+  // build the node form correctly.
+  $type = node_get_types('type', $node);
+
+  if ($type->has_title) {
+    $form['title'] = array(
+      '#type' => 'textfield',
+      '#title' => check_plain($type->title_label),
+      '#required' => TRUE,
+      '#default_value' => $node->title,
+      '#weight' => -5
+    );
+  }
+
+  if ($type->has_body) {
+    // In Drupal 6, we use node_body_field() to get the body and filter
+    // elements. This replaces the old textarea + filter_form() method of
+    // setting this up. It will also ensure the teaser splitter gets set up
+    // properly.
+    $form['body_field'] = node_body_field($node, $type->body_label, $type->min_word_count);
+  }
+
+  $form['mimetype'] = array(
+    '#type' => 'select',
+    '#title' => t('Type'),
+    '#options' => array(
+    	'1' => t('Html'),
+    	'2' => t('CSS'),
+    	'3' => t('Javascript'),
+    	'4' => t('XML'),
+    	'5' => t('Plain text'),
+    ),
+    '#default_value' => isset($node->mimetype) ? $node->mimetype : 1,
+    '#weight' => -4
+  );
+
+  return $form;
+}
+
+/**
+ * Implementation of hook_validate().
+ *
+ * Our "mimetype" field requires a number to be entered. This hook lets
+ * us ensure that the user entered an appropriate value before we try
+ * inserting anything into the database.
+ *
+ * Errors should be signaled with form_set_error().
+ */
+function generic_node_validate($node, &$form) {
+  if ($node->mimetype) {
+    if (!is_numeric($node->mimetype)) {
+      form_set_error('mimetype', t('Please select a correct type.'));
+    }
+  }
+}
+
+/**
+ * Implementation of hook_insert().
+ *
+ * As a new node is being inserted into the database, we need to do our own
+ * database inserts.
+ */
+function generic_node_insert($node) {
+  db_query("INSERT INTO {generic_node} (vid, nid, mimetype) VALUES (%d, %d, %d)", $node->vid, $node->nid, $node->mimetype);
+}
+
+/**
+ * Implementation of hook_update().
+ *
+ * As an existing node is being updated in the database, we need to do our own
+ * database updates.
+ */
+function generic_node_update($node) {
+  // if this is a new node or we're adding a new revision,
+  if ($node->revision) {
+    generic_node_insert($node);
+  }
+  else {
+    db_query("UPDATE {generic_node} SET mimetype = %d WHERE vid = %d", $node->mimetype, $node->vid);
+  }
+}
+
+/**
+ * Implementation of hook_nodeapi().
+ *
+ * When a node revision is deleted, we need to remove the corresponding record
+ * from our table. The only way to handle revision deletion is by implementing
+ * hook_nodeapi().
+ */
+function generic_node_nodeapi(&$node, $op, $teaser, $page) {
+  switch ($op) {
+    case 'delete revision':
+      // Notice that we're matching a single revision based on the node's vid.
+      db_query('DELETE FROM {generic_node} WHERE vid = %d', $node->vid);
+      break;
+  }
+}
+
+/**
+ * Implementation of hook_delete().
+ *
+ * When a node is deleted, we need to remove all related records from our table.
+ */
+function generic_node_delete($node) {
+  // Notice that we're matching all revision, by using the node's nid.
+  db_query('DELETE FROM {generic_node} WHERE nid = %d', $node->nid);
+}
+
+/**
+ * Implementation of hook_load().
+ *
+ * Now that we've defined how to manage the node data in the database, we
+ * need to tell Drupal how to get the node back out. This hook is called
+ * every time a node is loaded, and allows us to do some loading of our own.
+ */
+function generic_node_load($node) {
+  $additions = db_fetch_object(db_query('SELECT mimetype FROM {generic_node} WHERE vid = %d', $node->vid));
+  return $additions;
+}
+
+/**
+ * Implementation of hook_view().
+ *
+ * This is a typical implementation that simply runs the node text through
+ * the output filters.
+ */
+function generic_node_view($node, $teaser = FALSE, $page = FALSE) {
+  $node = node_prepare($node, $teaser);
+  $node->content['myfield'] = array(
+    '#value' => theme('generic_node_order_info', $node),
+    '#weight' => 1,
+  );
+
+  return $node;
+}
+
+/**
+ * Implementation of hook_theme().
+ *
+ * This lets us tell Drupal about our theme functions and their arguments.
+ */
+function generic_node_theme() {
+  return array(
+    'page' => array(),
+  );
+}
+
+/**
+ * Implementation of hook_theme_registry_alter().
+ */
+function generic_node_theme_registry_alter(&$theme_registry) {
+  array_push($theme_registry['page']['theme paths'], drupal_get_path('module', 'generic_node'));
+}
+
+
+function generic_node_preprocess_page(&$variables){
+  if(isset($variables['node']) && $variables['node']->type == 'generic_node' && !in_array('page-node-edit', $variables['template_files'])) {
+  	  $type = $variables['node']->type;
+	  template_preprocess_page($variables);
+	  
+	  $variables['template_files'][] = "page";
+	  $variables['template_files'][] = "page-generic";
+  }
+}

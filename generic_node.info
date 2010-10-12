@@ -1,0 +1,5 @@
+; $Id: generic_node.info,v 1.1.2.2 2010/07/20 04:34:30 rfay Exp $
+name = Generic node
+description = An generic node that defines a new content type for creating basic .
+package = Other
+core = 6.x
