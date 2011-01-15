@@ -2,30 +2,6 @@
 // $Id: generic_node.module,v 1.1.2.8 2010/09/03 16:17:25 rfay Exp $
 
 /**
- * @file
- */
-
-/**
- * Implementation of hook_menu().
-function generic_node_menu() {
-  $items['examples/node_example'] = array(
-    'title' => 'Generic Node',
-    'page callback' => 'generic_node_info',
-    'access callback' => TRUE,
-  );
-  return $items;
-}
- */
-
-/**
- * Explain how the module demonstrates a new node type.node_example.test
-function generic_node_info() {
-	return t('The node example defines a new node type, "Generic node", which can be created at !link.', array('!link' => l(t('node/add/generic-node'), 'node/add/generic-node')));
-}
- */
-
-
-/**
  * Implementation of hook_node_info().
  *
  * This is a required node hook. This function describes the nodes provided by
